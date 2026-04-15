@@ -1,6 +1,6 @@
 'use strict';
 
-var index = require('./index-D-1dB2pp.js');
+var index = require('./index-CHtasHuu.js');
 var appGlobals = require('./app-globals-V2Kpy_OQ.js');
 
 var _documentCurrentScript = typeof document !== 'undefined' ? document.currentScript : null;
@@ -19,7 +19,7 @@ var patchBrowser = () => {
 
 patchBrowser().then(async (options) => {
   await appGlobals.globalScripts();
-  return index.bootstrapLazy([["my-component.cjs",[[513,"my-component",{"first":[1],"middle":[1],"last":[1]}]]]], options);
+  return index.bootstrapLazy([["my-component.cjs",[[513,"my-component",{"first":[1],"middle":[1],"last":[1],"cardTitle":[1,"card-title"],"theme":[1],"isExpanded":[32],"customMessage":[32]}]]]], options);
 });
 
 exports.setNonce = index.setNonce;

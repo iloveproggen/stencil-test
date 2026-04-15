@@ -7,11 +7,20 @@
 
 ## Properties
 
-| Property | Attribute | Description     | Type     | Default     |
-| -------- | --------- | --------------- | -------- | ----------- |
-| `first`  | `first`   | The first name  | `string` | `undefined` |
-| `last`   | `last`    | The last name   | `string` | `undefined` |
-| `middle` | `middle`  | The middle name | `string` | `undefined` |
+| Property    | Attribute    | Description | Type                | Default          |
+| ----------- | ------------ | ----------- | ------------------- | ---------------- |
+| `cardTitle` | `card-title` | UI config   | `string`            | `'Welcome Card'` |
+| `first`     | `first`      | Name parts  | `string`            | `undefined`      |
+| `last`      | `last`       |             | `string`            | `undefined`      |
+| `middle`    | `middle`     |             | `string`            | `undefined`      |
+| `theme`     | `theme`      |             | `"dark" \| "light"` | `'light'`        |
+
+
+## Events
+
+| Event    | Description                           | Type                  |
+| -------- | ------------------------------------- | --------------------- |
+| `action` | Event emitted when user clicks button | `CustomEvent<string>` |
 
 
 ----------------------------------------------

@@ -1,5 +1,7 @@
+'use strict';
+
 const NAMESPACE = 'stencil';
-const BUILD = /* stencil */ { hotModuleReplacement: false, hydratedSelectorName: "hydrated", lazyLoad: true, prop: true, propChangeCallback: false, updatable: true};
+const BUILD = /* stencil */ { hotModuleReplacement: false, hydratedSelectorName: "hydrated", lazyLoad: true, propChangeCallback: false, state: true, updatable: true};
 
 /*
  Stencil Client Platform v4.43.4 | MIT Licensed | https://stenciljs.com
@@ -58,7 +60,7 @@ var registerInstance = (lazyInstance, hostRef) => {
   if (!hostRef) return;
   lazyInstance.__stencil__getHostRef = () => hostRef;
   hostRef.$lazyInstance$ = lazyInstance;
-  if (hostRef.$cmpMeta$.$flags$ & 512 /* hasModernPropertyDecls */ && (BUILD.prop)) {
+  if (hostRef.$cmpMeta$.$flags$ & 512 /* hasModernPropertyDecls */ && (BUILD.state)) {
     reWireGetterSetter(lazyInstance, hostRef);
   }
 };
@@ -82,6 +84,7 @@ var registerHost = (hostElement, cmpMeta) => {
   hostElement.__stencil__getHostRef = () => ref;
   return ref;
 };
+var isMemberInElement = (elm, memberName) => memberName in elm;
 var consoleError = (e, el) => (0, console.error)(e, el);
 
 // src/client/client-load-module.ts
@@ -379,6 +382,12 @@ var h = (nodeName, vnodeData, ...children) => {
     if (vnodeData.key) {
       key = vnodeData.key;
     }
+    {
+      const classData = vnodeData.className || vnodeData.class;
+      if (classData) {
+        vnodeData.class = typeof classData !== "object" ? classData : Object.keys(classData).filter((k) => classData[k]).join(" ");
+      }
+    }
   }
   const vnode = newVNode(nodeName, null);
   vnode.$attrs$ = vnodeData;
@@ -420,6 +429,25 @@ var parsePropertyValue = (propValue, propType, isFormAssociated) => {
   }
   return propValue;
 };
+var getElement = (ref) => {
+  var _a;
+  return (_a = getHostRef(ref)) == null ? void 0 : _a.$hostElement$ ;
+};
+
+// src/runtime/event-emitter.ts
+var createEvent = (ref, name, flags) => {
+  const elm = getElement(ref);
+  return {
+    emit: (detail) => {
+      return emitEvent(elm, name, {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        detail
+      });
+    }
+  };
+};
 var emitEvent = (elm, name, opts) => {
   const ev = plt.ce(name, opts);
   elm.dispatchEvent(ev);
@@ -429,8 +457,111 @@ var setAccessor = (elm, memberName, oldValue, newValue, isSvg, flags, initialRen
   if (oldValue === newValue) {
     return;
   }
-  memberName.toLowerCase();
+  let isProp = isMemberInElement(elm, memberName);
+  let ln = memberName.toLowerCase();
+  if (memberName === "class") {
+    const classList = elm.classList;
+    const oldClasses = parseClassList(oldValue);
+    let newClasses = parseClassList(newValue);
+    {
+      classList.remove(...oldClasses.filter((c) => c && !newClasses.includes(c)));
+      classList.add(...newClasses.filter((c) => c && !oldClasses.includes(c)));
+    }
+  } else if (memberName === "key") ; else if ((!isProp ) && memberName[0] === "o" && memberName[1] === "n") {
+    if (memberName[2] === "-") {
+      memberName = memberName.slice(3);
+    } else if (isMemberInElement(win, ln)) {
+      memberName = ln.slice(2);
+    } else {
+      memberName = ln[2] + memberName.slice(3);
+    }
+    if (oldValue || newValue) {
+      const capture = memberName.endsWith(CAPTURE_EVENT_SUFFIX);
+      memberName = memberName.replace(CAPTURE_EVENT_REGEX, "");
+      if (oldValue) {
+        plt.rel(elm, memberName, oldValue, capture);
+      }
+      if (newValue) {
+        plt.ael(elm, memberName, newValue, capture);
+      }
+    }
+  } else if (memberName[0] === "a" && memberName.startsWith("attr:")) {
+    const propName = memberName.slice(5);
+    let attrName;
+    {
+      const hostRef = getHostRef(elm);
+      if (hostRef && hostRef.$cmpMeta$ && hostRef.$cmpMeta$.$members$) {
+        const memberMeta = hostRef.$cmpMeta$.$members$[propName];
+        if (memberMeta && memberMeta[1]) {
+          attrName = memberMeta[1];
+        }
+      }
+    }
+    if (!attrName) {
+      attrName = propName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    }
+    if (newValue == null || newValue === false) {
+      if (newValue !== false || elm.getAttribute(attrName) === "") {
+        elm.removeAttribute(attrName);
+      }
+    } else {
+      elm.setAttribute(attrName, newValue === true ? "" : newValue);
+    }
+    return;
+  } else if (memberName[0] === "p" && memberName.startsWith("prop:")) {
+    const propName = memberName.slice(5);
+    try {
+      elm[propName] = newValue;
+    } catch (e) {
+    }
+    return;
+  } else {
+    const isComplex = isComplexType(newValue);
+    if ((isProp || isComplex && newValue !== null) && !isSvg) {
+      try {
+        if (!elm.tagName.includes("-")) {
+          const n = newValue == null ? "" : newValue;
+          if (memberName === "list") {
+            isProp = false;
+          } else if (oldValue == null || elm[memberName] !== n) {
+            if (typeof elm.__lookupSetter__(memberName) === "function") {
+              elm[memberName] = n;
+            } else {
+              elm.setAttribute(memberName, n);
+            }
+          }
+        } else if (elm[memberName] !== newValue) {
+          elm[memberName] = newValue;
+        }
+      } catch (e) {
+      }
+    }
+    if (newValue == null || newValue === false) {
+      if (newValue !== false || elm.getAttribute(memberName) === "") {
+        {
+          elm.removeAttribute(memberName);
+        }
+      }
+    } else if ((!isProp || flags & 4 /* isHost */ || isSvg) && !isComplex && elm.nodeType === 1 /* ElementNode */) {
+      newValue = newValue === true ? "" : newValue;
+      {
+        elm.setAttribute(memberName, newValue);
+      }
+    }
+  }
 };
+var parseClassListRegex = /\s/;
+var parseClassList = (value) => {
+  if (typeof value === "object" && value && "baseVal" in value) {
+    value = value.baseVal;
+  }
+  if (!value || typeof value !== "string") {
+    return [];
+  }
+  return value.split(parseClassListRegex);
+};
+var CAPTURE_EVENT_SUFFIX = "Capture";
+var CAPTURE_EVENT_REGEX = new RegExp(CAPTURE_EVENT_SUFFIX + "$");
 
 // src/runtime/vdom/update-element.ts
 var updateElement = (oldVnode, newVnode, isSvgMode2, isInitialRender) => {
@@ -444,7 +575,9 @@ var updateElement = (oldVnode, newVnode, isSvgMode2, isInitialRender) => {
           elm,
           memberName,
           oldVnodeAttrs[memberName],
-          void 0);
+          void 0,
+          isSvgMode2,
+          newVnode.$flags$);
       }
     }
   }
@@ -453,7 +586,9 @@ var updateElement = (oldVnode, newVnode, isSvgMode2, isInitialRender) => {
       elm,
       memberName,
       oldVnodeAttrs[memberName],
-      newVnodeAttrs[memberName]);
+      newVnodeAttrs[memberName],
+      isSvgMode2,
+      newVnode.$flags$);
   }
 };
 function sortedAttrNames(attrNames) {
@@ -466,6 +601,7 @@ function sortedAttrNames(attrNames) {
   );
 }
 var hostTagName;
+var isSvgMode = false;
 var createElm = (oldParentVNode, newParentVNode, childIndex) => {
   const newVNode2 = newParentVNode.$children$[childIndex];
   let i2 = 0;
@@ -481,7 +617,7 @@ var createElm = (oldParentVNode, newParentVNode, childIndex) => {
       newVNode2.$tag$
     );
     {
-      updateElement(null, newVNode2);
+      updateElement(null, newVNode2, isSvgMode);
     }
     if (newVNode2.$children$) {
       const appendTarget = newVNode2.$tag$ === "template" ? elm.content : elm;
@@ -630,7 +766,7 @@ var patch = (oldVNode, newVNode2, isInitialRender = false) => {
   const text = newVNode2.$text$;
   if (text == null) {
     {
-      updateElement(oldVNode, newVNode2);
+      updateElement(oldVNode, newVNode2, isSvgMode);
     }
     if (oldChildren !== null && newChildren !== null) {
       updateChildren(elm, oldChildren, newVNode2, newChildren, isInitialRender);
@@ -1292,4 +1428,9 @@ function transformTag(tag) {
   return tag;
 }
 
-export { bootstrapLazy as b, h, promiseResolve as p, registerInstance as r, setNonce as s };
+exports.bootstrapLazy = bootstrapLazy;
+exports.createEvent = createEvent;
+exports.h = h;
+exports.promiseResolve = promiseResolve;
+exports.registerInstance = registerInstance;
+exports.setNonce = setNonce;
